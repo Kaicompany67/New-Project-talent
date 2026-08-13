@@ -1,0 +1,261 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>GigFinder | Book Local Bands</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    .modal { display: none; }
+    .modal.active { display: flex; }
+  </style>
+</head>
+<body class="bg-slate-900 text-slate-100 min-h-screen font-sans">
+
+  <!-- Header / Nav -->
+  <header class="border-b border-slate-800 bg-slate-950 sticky top-0 z-40">
+    <div class="max-w-6xl mx-auto px-4 py-4 flex justify-between items-center">
+      <h1 class="text-2xl font-bold tracking-wider text-amber-500">GIG<span class="text-white">FINDER</span></h1>
+      <button onclick="openModal('addBandModal')" class="bg-amber-500 hover:bg-amber-600 text-slate-950 font-bold px-4 py-2 rounded-lg text-sm transition">
+        + Join as a Band
+      </button>
+    </div>
+  </header>
+
+  <!-- Main Hero & Search -->
+  <main class="max-w-6xl mx-auto px-4 py-8">
+    <div class="text-center mb-10">
+      <h2 class="text-4xl font-extrabold mb-3">Find & Book Live Performers</h2>
+      <p class="text-slate-400">Direct availability estimates and transparent night rates for event bookers.</p>
+    </div>
+
+    <!-- Filters -->
+    <div class="flex flex-col sm:flex-row gap-4 mb-8 bg-slate-800 p-4 rounded-xl border border-slate-700">
+      <input type="text" id="searchInput" oninput="filterBands()" placeholder="Search band name or location..." class="bg-slate-900 border border-slate-700 text-white rounded-lg px-4 py-2 flex-1 focus:outline-none focus:border-amber-500">
+      
+      <select id="genreFilter" onchange="filterBands()" class="bg-slate-900 border border-slate-700 text-white rounded-lg px-4 py-2 focus:outline-none focus:border-amber-500">
+        <option value="All">All Genres</option>
+        <option value="Rock">Rock</option>
+        <option value="Metal">Metal</option>
+        <option value="Indie">Indie</option>
+        <option value="Jazz">Jazz</option>
+      </select>
+    </div>
+
+    <!-- Band Grid -->
+    <div id="bandGrid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+      <!-- Dynamic Band Cards Inserted Here -->
+    </div>
+  </main>
+
+  <!-- Modal: Book Band / Rate Calculator -->
+  <div id="bookingModal" class="modal fixed inset-0 bg-black/80 z-50 items-center justify-center p-4">
+    <div class="bg-slate-800 border border-slate-700 rounded-xl p-6 max-w-lg w-full relative">
+      <button onclick="closeModal('bookingModal')" class="absolute top-4 right-4 text-slate-400 hover:text-white text-xl">&times;</button>
+      <h3 id="modalBandName" class="text-2xl font-bold text-amber-500 mb-1"></h3>
+      <p class="text-sm text-slate-400 mb-4">Request booking & calculate estimated fee</p>
+
+      <form id="bookingForm" onsubmit="handleBookingSubmit(event)" class="space-y-4">
+        <div>
+          <label class="block text-xs uppercase font-semibold text-slate-400 mb-1">Event Date</label>
+          <input type="date" required class="w-full bg-slate-900 border border-slate-700 rounded-lg p-2 text-white">
+        </div>
+
+        <div>
+          <label class="block text-xs uppercase font-semibold text-slate-400 mb-1">Est. Travel Distance (km)</label>
+          <input type="number" id="travelDist" value="0" min="0" oninput="calculateEstimate()" class="w-full bg-slate-900 border border-slate-700 rounded-lg p-2 text-white">
+        </div>
+
+        <div class="p-3 bg-slate-900 rounded-lg border border-slate-700/50 flex justify-between items-center">
+          <span class="text-sm text-slate-300">Estimated Total Rate:</span>
+          <span id="calculatedTotal" class="text-xl font-bold text-emerald-400">$0</span>
+        </div>
+
+        <div>
+          <label class="block text-xs uppercase font-semibold text-slate-400 mb-1">Your Contact Email</label>
+          <input type="email" required placeholder="booker@venue.com" class="w-full bg-slate-900 border border-slate-700 rounded-lg p-2 text-white">
+        </div>
+
+        <div>
+          <label class="block text-xs uppercase font-semibold text-slate-400 mb-1">Event Details</label>
+          <textarea rows="3" placeholder="Venue location, set times, gear details..." class="w-full bg-slate-900 border border-slate-700 rounded-lg p-2 text-white"></textarea>
+        </div>
+
+        <button type="submit" class="w-full bg-emerald-500 hover:bg-emerald-600 font-bold py-2 rounded-lg text-slate-950 transition">Send Booking Request</button>
+      </form>
+    </div>
+  </div>
+
+  <!-- Modal: Add Band -->
+  <div id="addBandModal" class="modal fixed inset-0 bg-black/80 z-50 items-center justify-center p-4">
+    <div class="bg-slate-800 border border-slate-700 rounded-xl p-6 max-w-lg w-full relative">
+      <button onclick="closeModal('addBandModal')" class="absolute top-4 right-4 text-slate-400 hover:text-white text-xl">&times;</button>
+      <h3 class="text-2xl font-bold text-amber-500 mb-4">List Your Band</h3>
+
+      <form id="addBandForm" onsubmit="handleAddBandSubmit(event)" class="space-y-4">
+        <div>
+          <label class="block text-xs uppercase font-semibold text-slate-400 mb-1">Band Name</label>
+          <input type="text" id="newBandName" required class="w-full bg-slate-900 border border-slate-700 rounded-lg p-2 text-white">
+        </div>
+
+        <div class="grid grid-cols-2 gap-4">
+          <div>
+            <label class="block text-xs uppercase font-semibold text-slate-400 mb-1">Genre</label>
+            <select id="newBandGenre" class="w-full bg-slate-900 border border-slate-700 rounded-lg p-2 text-white">
+              <option value="Rock">Rock</option>
+              <option value="Metal">Metal</option>
+              <option value="Indie">Indie</option>
+              <option value="Jazz">Jazz</option>
+            </select>
+          </div>
+          <div>
+            <label class="block text-xs uppercase font-semibold text-slate-400 mb-1">Base Night Rate ($)</label>
+            <input type="number" id="newBandRate" required min="0" class="w-full bg-slate-900 border border-slate-700 rounded-lg p-2 text-white">
+          </div>
+        </div>
+
+        <div>
+          <label class="block text-xs uppercase font-semibold text-slate-400 mb-1">Location</label>
+          <input type="text" id="newBandLocation" required placeholder="e.g. Seattle, WA" class="w-full bg-slate-900 border border-slate-700 rounded-lg p-2 text-white">
+        </div>
+
+        <div>
+          <label class="block text-xs uppercase font-semibold text-slate-400 mb-1">Bio / Overview</label>
+          <textarea id="newBandBio" required rows="2" class="w-full bg-slate-900 border border-slate-700 rounded-lg p-2 text-white"></textarea>
+        </div>
+
+        <button type="submit" class="w-full bg-amber-500 hover:bg-amber-600 font-bold py-2 rounded-lg text-slate-950 transition">Publish Profile</button>
+      </form>
+    </div>
+  </div>
+
+  <script>
+    // Sample initial dataset
+    let bands = [
+      {
+        id: 1,
+        name: "Phantom Sound",
+        genre: "Metal",
+        location: "Vancouver, BC",
+        baseRate: 600,
+        travelPerKm: 1.00,
+        rating: 4.9,
+        reviewsCount: 12,
+        bio: "High-energy 4-piece heavy rock cover and original band with full backline available.",
+        image: "https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?w=500&auto=format&fit=crop&q=60"
+      },
+      {
+        id: 2,
+        name: "Velvet Groove",
+        genre: "Jazz",
+        location: "Seattle, WA",
+        baseRate: 850,
+        travelPerKm: 1.50,
+        rating: 5.0,
+        reviewsCount: 8,
+        bio: "Smooth lounge jazz duo perfect for corporate receptions and quiet cocktail lounges.",
+        image: "https://images.unsplash.com/photo-1514525253161-7a46d19cd819?w=500&auto=format&fit=crop&q=60"
+      }
+    ];
+
+    let selectedBandForBooking = null;
+
+    function renderBands(data) {
+      const grid = document.getElementById('bandGrid');
+      grid.innerHTML = '';
+
+      if(data.length === 0) {
+        grid.innerHTML = `<p class="col-span-full text-center text-slate-500 py-8">No bands found matching criteria.</p>`;
+        return;
+      }
+
+      data.forEach(band => {
+        const card = document.createElement('div');
+        card.className = "bg-slate-800 border border-slate-700 rounded-xl overflow-hidden hover:border-slate-600 transition flex flex-col";
+        card.innerHTML = `
+          <img src="${band.image}" alt="${band.name}" class="h-48 w-full object-cover">
+          <div class="p-5 flex-1 flex flex-col justify-between">
+            <div>
+              <div class="flex justify-between items-start mb-2">
+                <h3 class="text-xl font-bold text-white">${band.name}</h3>
+                <span class="text-xs bg-slate-700 text-amber-400 font-semibold px-2 py-1 rounded">${band.genre}</span>
+              </div>
+              <p class="text-xs text-slate-400 mb-3">${band.location} • ★ ${band.rating} (${band.reviewsCount} reviews)</p>
+              <p class="text-sm text-slate-300 mb-4 line-clamp-2">${band.bio}</p>
+            </div>
+            <div>
+              <div class="flex justify-between items-center mb-4 pt-3 border-t border-slate-700">
+                <span class="text-xs text-slate-400 uppercase font-semibold">Starting Night Rate</span>
+                <span class="text-lg font-bold text-amber-500">$${band.baseRate}</span>
+              </div>
+              <button onclick="openBookingModal(${band.id})" class="w-full bg-slate-700 hover:bg-slate-600 font-semibold py-2 rounded-lg text-sm text-white transition">Check Availability & Book</button>
+            </div>
+          </div>
+        `;
+        grid.appendChild(card);
+      });
+    }
+
+    function filterBands() {
+      const search = document.getElementById('searchInput').value.toLowerCase();
+      const genre = document.getElementById('genreFilter').value;
+
+      const filtered = bands.filter(b => {
+        const matchesSearch = b.name.toLowerCase().includes(search) || b.location.toLowerCase().includes(search);
+        const matchesGenre = genre === 'All' || b.genre === genre;
+        return matchesSearch && matchesGenre;
+      });
+
+      renderBands(filtered);
+    }
+
+    function openModal(id) { document.getElementById(id).classList.add('active'); }
+    function closeModal(id) { document.getElementById(id).classList.remove('active'); }
+
+    function openBookingModal(bandId) {
+      selectedBandForBooking = bands.find(b => b.id === bandId);
+      document.getElementById('modalBandName').innerText = selectedBandForBooking.name;
+      document.getElementById('travelDist').value = 0;
+      calculateEstimate();
+      openModal('bookingModal');
+    }
+
+    function calculateEstimate() {
+      if(!selectedBandForBooking) return;
+      const dist = parseFloat(document.getElementById('travelDist').value) || 0;
+      const total = selectedBandForBooking.baseRate + (dist * selectedBandForBooking.travelPerKm);
+      document.getElementById('calculatedTotal').innerText = `$${total.toFixed(2)}`;
+    }
+
+    function handleBookingSubmit(e) {
+      e.preventDefault();
+      alert(`Booking request sent to ${selectedBandForBooking.name}!`);
+      closeModal('bookingModal');
+    }
+
+    function handleAddBandSubmit(e) {
+      e.preventDefault();
+      const newBand = {
+        id: Date.now(),
+        name: document.getElementById('newBandName').value,
+        genre: document.getElementById('newBandGenre').value,
+        location: document.getElementById('newBandLocation').value,
+        baseRate: parseFloat(document.getElementById('newBandRate').value),
+        travelPerKm: 1.00,
+        rating: 5.0,
+        reviewsCount: 0,
+        bio: document.getElementById('newBandBio').value,
+        image: "https://images.unsplash.com/photo-1465847899084-d164df4dedc6?w=500&auto=format&fit=crop&q=60"
+      };
+
+      bands.unshift(newBand);
+      filterBands();
+      closeModal('addBandModal');
+      e.target.reset();
+    }
+
+    // Initial Render
+    renderBands(bands);
+  </script>
+</body>
+</html>
