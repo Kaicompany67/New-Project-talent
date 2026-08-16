@@ -314,3 +314,560 @@
   </script>
 </body>
 </html>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>StageBnB | Find & Book Live Talent</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Supabase JS Client Library -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <style>
+    .modal { display: none; }
+    .modal.active { display: flex; }
+    .no-scrollbar::-webkit-scrollbar { display: none; }
+    .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+  </style>
+</head>
+<body class="bg-slate-950 text-slate-100 min-h-screen font-sans selection:bg-rose-500 selection:text-white">
+
+  <!-- Header Navigation -->
+  <header class="border-b border-slate-800 bg-slate-950/90 backdrop-blur sticky top-0 z-40">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 py-4 flex justify-between items-center">
+      <a href="#" class="flex items-center gap-2 text-rose-500 text-2xl font-black tracking-tight">
+        <svg class="w-8 h-8 fill-current" viewBox="0 0 24 24"><path d="M12 3v10.55c-.59-.34-1.27-.55-2-.55-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4V7h4V3h-6z"/></svg>
+        <span>stage<span class="text-white">bnb</span></span>
+      </a>
+
+      <!-- Search Bar -->
+      <div class="hidden md:flex items-center bg-slate-900 border border-slate-700 rounded-full py-2 px-4 shadow-sm text-sm gap-4">
+        <input type="text" id="searchInput" oninput="filterBands()" placeholder="City or artist name..." class="bg-transparent focus:outline-none text-white w-48 placeholder-slate-500">
+        <div class="h-4 w-px bg-slate-700"></div>
+        <span class="text-slate-400 font-medium">Live Roster & Booking</span>
+      </div>
+
+      <!-- Auth Controls & Post Button -->
+      <div class="flex items-center gap-3">
+        <div id="userAccountSection" class="flex items-center gap-2">
+          <button onclick="openModal('authModal')" id="loginBtn" class="text-slate-300 hover:text-white text-sm font-semibold px-4 py-2 rounded-full border border-slate-800 hover:border-slate-700">
+            Sign In / Register
+          </button>
+        </div>
+
+        <button onclick="handlePostBandClick()" class="bg-rose-500 hover:bg-rose-600 text-white font-semibold px-5 py-2.5 rounded-full text-sm transition shadow-lg shadow-rose-500/20">
+          + Post Your Band
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- Category Filter Bar (Airbnb Style) -->
+  <section class="border-b border-slate-800/60 bg-slate-950 py-4">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 flex items-center gap-3 overflow-x-auto no-scrollbar">
+      <button onclick="setGenreFilter('All')" class="genre-pill bg-slate-800 text-white border-slate-700 border px-5 py-2 rounded-full text-xs font-semibold whitespace-nowrap">All Roster</button>
+      <button onclick="setGenreFilter('Metal')" class="genre-pill bg-slate-900 text-slate-400 border-slate-800 border px-5 py-2 rounded-full text-xs font-semibold whitespace-nowrap hover:text-white">Metal & Hard Rock</button>
+      <button onclick="setGenreFilter('Rock')" class="genre-pill bg-slate-900 text-slate-400 border-slate-800 border px-5 py-2 rounded-full text-xs font-semibold whitespace-nowrap hover:text-white">Classic Rock & Pop</button>
+      <button onclick="setGenreFilter('Indie')" class="genre-pill bg-slate-900 text-slate-400 border-slate-800 border px-5 py-2 rounded-full text-xs font-semibold whitespace-nowrap hover:text-white">Indie & Alternative</button>
+      <button onclick="setGenreFilter('Jazz')" class="genre-pill bg-slate-900 text-slate-400 border-slate-800 border px-5 py-2 rounded-full text-xs font-semibold whitespace-nowrap hover:text-white">Jazz & Funk</button>
+    </div>
+  </section>
+
+  <!-- Main Listing Grid -->
+  <main class="max-w-7xl mx-auto px-4 sm:px-6 py-8">
+    <div id="loadingSpinner" class="text-center py-12 text-slate-400">Loading band profiles...</div>
+    <div id="bandGrid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6"></div>
+  </main>
+
+  <!-- Modal 1: Account Auth (Sign Up / Sign In) -->
+  <div id="authModal" class="modal fixed inset-0 bg-black/80 z-50 items-center justify-center p-4 backdrop-blur-sm">
+    <div class="bg-slate-900 border border-slate-800 rounded-2xl p-6 max-w-md w-full relative shadow-2xl">
+      <button onclick="closeModal('authModal')" class="absolute top-4 right-4 text-slate-400 hover:text-white text-2xl">&times;</button>
+
+      <div class="flex gap-4 border-b border-slate-800 pb-3 mb-6">
+        <button id="tabLogin" onclick="switchAuthTab('login')" class="font-bold text-lg text-rose-500 border-b-2 border-rose-500 pb-1">Sign In</button>
+        <button id="tabRegister" onclick="switchAuthTab('register')" class="font-bold text-lg text-slate-400 hover:text-white pb-1">Create Account</button>
+      </div>
+
+      <form id="authForm" onsubmit="handleAuthSubmit(event)" class="space-y-4">
+        <div>
+          <label class="block text-xs uppercase font-semibold text-slate-400 mb-1">Email Address</label>
+          <input type="email" id="authEmail" required placeholder="bandname@email.com" class="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-white text-sm focus:outline-none focus:border-rose-500">
+        </div>
+
+        <div>
+          <label class="block text-xs uppercase font-semibold text-slate-400 mb-1">Password</label>
+          <input type="password" id="authPassword" required placeholder="••••••••" class="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-white text-sm focus:outline-none focus:border-rose-500">
+        </div>
+
+        <button type="submit" id="authSubmitBtn" class="w-full bg-rose-500 hover:bg-rose-600 font-bold py-3 rounded-xl text-white transition shadow-lg shadow-rose-500/20">Sign In</button>
+      </form>
+    </div>
+  </div>
+
+  <!-- Modal 2: Create New Band Profile -->
+  <div id="addBandModal" class="modal fixed inset-0 bg-black/80 z-50 items-center justify-center p-4 backdrop-blur-sm">
+    <div class="bg-slate-900 border border-slate-800 rounded-2xl p-6 max-w-lg w-full relative shadow-2xl max-h-[90vh] overflow-y-auto">
+      <button onclick="closeModal('addBandModal')" class="absolute top-4 right-4 text-slate-400 hover:text-white text-2xl">&times;</button>
+      <h3 class="text-2xl font-bold text-white mb-1">Create Band Profile</h3>
+      <p class="text-xs text-slate-400 mb-4">Post your band details, night rates, and upload photos directly from your phone gallery or PC.</p>
+
+      <form id="addBandForm" onsubmit="handleAddBandSubmit(event)" class="space-y-4">
+        <div>
+          <label class="block text-xs uppercase font-semibold text-slate-400 mb-1">Band / Artist Name</label>
+          <input type="text" id="newBandName" required placeholder="e.g. Phantom Sound" class="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-white text-sm focus:outline-none focus:border-rose-500">
+        </div>
+
+        <div class="grid grid-cols-2 gap-4">
+          <div>
+            <label class="block text-xs uppercase font-semibold text-slate-400 mb-1">Genre</label>
+            <select id="newBandGenre" class="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-white text-sm focus:outline-none focus:border-rose-500">
+              <option value="Metal">Metal & Hard Rock</option>
+              <option value="Rock">Classic Rock & Pop</option>
+              <option value="Indie">Indie & Alternative</option>
+              <option value="Jazz">Jazz & Funk</option>
+            </select>
+          </div>
+          <div>
+            <label class="block text-xs uppercase font-semibold text-slate-400 mb-1">Base Night Rate ($)</label>
+            <input type="number" id="newBandRate" required min="0" placeholder="600" class="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-white text-sm focus:outline-none focus:border-rose-500">
+          </div>
+        </div>
+
+        <div>
+          <label class="block text-xs uppercase font-semibold text-slate-400 mb-1">Location / Base City</label>
+          <input type="text" id="newBandLocation" required placeholder="e.g. Victoria, BC" class="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-white text-sm focus:outline-none focus:border-rose-500">
+        </div>
+
+        <div>
+          <label class="block text-xs uppercase font-semibold text-slate-400 mb-1">Bio / Sound System Info</label>
+          <textarea id="newBandBio" required rows="2" placeholder="4-piece band with full PA provided..." class="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-white text-sm focus:outline-none focus:border-rose-500"></textarea>
+        </div>
+
+        <!-- File Upload Section with Previews -->
+        <div class="border-t border-slate-800 pt-4">
+          <label class="block text-xs uppercase font-semibold text-slate-400 mb-1">Upload Band Photos</label>
+          <input type="file" id="newBandPhotos" multiple accept="image/*" onchange="previewImages(event, 'createPreviewContainer')" class="w-full bg-slate-950 border border-slate-800 rounded-xl p-2.5 text-white text-xs file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-xs file:font-semibold file:bg-rose-500 file:text-white hover:file:bg-rose-600">
+          <p class="text-[10px] text-slate-500 mt-1">Select multiple JPEG or PNG images from your device.</p>
+          
+          <!-- Image Previews -->
+          <div id="createPreviewContainer" class="flex gap-2 mt-3 overflow-x-auto no-scrollbar"></div>
+        </div>
+
+        <!-- Optional Image URL Input -->
+        <div>
+          <label class="block text-xs uppercase font-semibold text-slate-400 mb-1">Or Paste Image URL (Optional)</label>
+          <input type="url" id="newBandImageUrl" placeholder="https://images.unsplash.com/photo-..." class="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-white text-xs focus:outline-none focus:border-rose-500">
+        </div>
+
+        <button type="submit" id="submitBtn" class="w-full bg-rose-500 hover:bg-rose-600 font-bold py-3 rounded-xl text-white transition shadow-lg shadow-rose-500/20">Publish Band Profile</button>
+      </form>
+    </div>
+  </div>
+
+  <!-- Modal 3: Add Photos to Existing Band -->
+  <div id="managePhotosModal" class="modal fixed inset-0 bg-black/80 z-50 items-center justify-center p-4 backdrop-blur-sm">
+    <div class="bg-slate-900 border border-slate-800 rounded-2xl p-6 max-w-lg w-full relative shadow-2xl max-h-[90vh] overflow-y-auto">
+      <button onclick="closeModal('managePhotosModal')" class="absolute top-4 right-4 text-slate-400 hover:text-white text-2xl">&times;</button>
+      <h3 class="text-2xl font-bold text-white mb-1">Add Band Photos</h3>
+      <p class="text-xs text-slate-400 mb-4">Upload new photos or add image links to your existing profile gallery.</p>
+
+      <form id="addMorePhotosForm" onsubmit="handleManagePhotosSubmit(event)" class="space-y-4">
+        <input type="hidden" id="manageBandId">
+
+        <div>
+          <label class="block text-xs uppercase font-semibold text-slate-400 mb-1">Upload New Photo Files</label>
+          <input type="file" id="extraBandPhotos" multiple accept="image/*" onchange="previewImages(event, 'managePreviewContainer')" class="w-full bg-slate-950 border border-slate-800 rounded-xl p-2.5 text-white text-xs file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-xs file:font-semibold file:bg-rose-500 file:text-white hover:file:bg-rose-600">
+          <div id="managePreviewContainer" class="flex gap-2 mt-3 overflow-x-auto no-scrollbar"></div>
+        </div>
+
+        <div>
+          <label class="block text-xs uppercase font-semibold text-slate-400 mb-1">Or Add Image URL Link</label>
+          <input type="url" id="extraImageUrl" placeholder="https://..." class="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-white text-xs focus:outline-none focus:border-rose-500">
+        </div>
+
+        <button type="submit" id="managePhotosBtn" class="w-full bg-rose-500 hover:bg-rose-600 font-bold py-3 rounded-xl text-white transition shadow-lg shadow-rose-500/20">Save & Append Photos</button>
+      </form>
+    </div>
+  </div>
+
+  <script>
+    // ==========================================
+    // CONFIGURATION KEYS
+    // ==========================================
+    const CLOUDINARY_CLOUD_NAME = "YOUR_CLOUDINARY_CLOUD_NAME";
+    const CLOUDINARY_UPLOAD_PRESET = "YOUR_UNSIGNED_PRESET_NAME";
+    
+    const SUPABASE_URL = "https://YOUR_PROJECT_ID.supabase.co";
+    const SUPABASE_ANON_KEY = "YOUR_SUPABASE_ANON_KEY";
+
+    let _supabase = null;
+    let currentUser = null;
+    let isRegisterMode = false;
+    let bands = [];
+    let currentGenre = "All";
+    let currentPhotoIndices = {};
+
+    if(SUPABASE_URL.indexOf("YOUR_PROJECT_ID") === -1) {
+      _supabase = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+    }
+
+    async function initAuth() {
+      if(!_supabase) return;
+
+      const { data: { session } } = await _supabase.auth.getSession();
+      if(session) {
+        currentUser = session.user;
+        updateUserUI();
+      }
+
+      _supabase.auth.onAuthStateChange((_event, session) => {
+        currentUser = session ? session.user : null;
+        updateUserUI();
+        renderBands(bands);
+      });
+    }
+
+    function updateUserUI() {
+      const container = document.getElementById('userAccountSection');
+      if (currentUser) {
+        container.innerHTML = `
+          <div class="flex items-center gap-2">
+            <span class="text-xs text-slate-400 font-medium hidden sm:inline">${currentUser.email}</span>
+            <button onclick="handleSignOut()" class="text-xs text-rose-400 hover:text-rose-300 border border-rose-900/50 bg-rose-950/30 px-3 py-1.5 rounded-full font-semibold">Sign Out</button>
+          </div>
+        `;
+      } else {
+        container.innerHTML = `
+          <button onclick="openModal('authModal')" class="text-slate-300 hover:text-white text-sm font-semibold px-4 py-2 rounded-full border border-slate-800 hover:border-slate-700">
+            Sign In / Register
+          </button>
+        `;
+      }
+    }
+
+    function switchAuthTab(mode) {
+      isRegisterMode = mode === 'register';
+      const tabLogin = document.getElementById('tabLogin');
+      const tabRegister = document.getElementById('tabRegister');
+      const submitBtn = document.getElementById('authSubmitBtn');
+
+      if (isRegisterMode) {
+        tabRegister.className = "font-bold text-lg text-rose-500 border-b-2 border-rose-500 pb-1";
+        tabLogin.className = "font-bold text-lg text-slate-400 hover:text-white pb-1";
+        submitBtn.innerText = "Create Account";
+      } else {
+        tabLogin.className = "font-bold text-lg text-rose-500 border-b-2 border-rose-500 pb-1";
+        tabRegister.className = "font-bold text-lg text-slate-400 hover:text-white pb-1";
+        submitBtn.innerText = "Sign In";
+      }
+    }
+
+    async function handleAuthSubmit(e) {
+      e.preventDefault();
+      const email = document.getElementById('authEmail').value;
+      const password = document.getElementById('authPassword').value;
+
+      if(!_supabase) {
+        alert("Please connect your Supabase keys to enable live account auth.");
+        closeModal('authModal');
+        return;
+      }
+
+      if (isRegisterMode) {
+        const { error } = await _supabase.auth.signUp({ email, password });
+        if(error) alert(error.message);
+        else {
+          alert("Account created! You can now sign in.");
+          closeModal('authModal');
+        }
+      } else {
+        const { error } = await _supabase.auth.signInWithPassword({ email, password });
+        if(error) alert(error.message);
+        else closeModal('authModal');
+      }
+    }
+
+    async function handleSignOut() {
+      if(_supabase) await _supabase.auth.signOut();
+      currentUser = null;
+      updateUserUI();
+      renderBands(bands);
+    }
+
+    function handlePostBandClick() {
+      if(!currentUser && _supabase) {
+        alert("Please sign in or create an account to post a band profile.");
+        openModal('authModal');
+      } else {
+        openModal('addBandModal');
+      }
+    }
+
+    // Live Thumbnail Preview Generator
+    function previewImages(event, containerId) {
+      const container = document.getElementById(containerId);
+      container.innerHTML = '';
+      const files = event.target.files;
+
+      for (let file of files) {
+        const reader = new FileReader();
+        reader.onload = function(e) {
+          const img = document.createElement('img');
+          img.src = e.target.result;
+          img.className = "w-16 h-16 object-cover rounded-lg border border-slate-700 flex-shrink-0";
+          container.appendChild(img);
+        };
+        reader.readAsDataURL(file);
+      }
+    }
+
+    async function loadBandsFromDatabase() {
+      const spinner = document.getElementById('loadingSpinner');
+      
+      if (!_supabase) {
+        bands = [
+          {
+            id: 1,
+            name: "Phantom Sound",
+            genre: "Metal",
+            location: "Victoria, BC",
+            base_rate: 600,
+            bio: "Heavy rock originals and covers. Full stage backline provided.",
+            images: ["https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?w=600&auto=format&fit=crop&q=80"]
+          }
+        ];
+        if (spinner) spinner.style.display = 'none';
+        renderBands(bands);
+        return;
+      }
+
+      const { data, error } = await _supabase.from('bands').select('*').order('created_at', { ascending: false });
+      if (spinner) spinner.style.display = 'none';
+
+      if (!error && data) {
+        bands = data;
+        renderBands(bands);
+      }
+    }
+
+    function renderBands(data) {
+      const grid = document.getElementById('bandGrid');
+      grid.innerHTML = '';
+
+      if (data.length === 0) {
+        grid.innerHTML = `<div class="col-span-full text-center text-slate-500 py-16"><p>No band profiles posted yet. Be the first!</p></div>`;
+        return;
+      }
+
+      data.forEach(band => {
+        if (currentPhotoIndices[band.id] === undefined) currentPhotoIndices[band.id] = 0;
+        const activeImgIndex = currentPhotoIndices[band.id];
+        const bandImages = (band.images && band.images.length > 0) ? band.images : ["https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?w=600&auto=format&fit=crop&q=80"];
+
+        const card = document.createElement('div');
+        card.className = "group flex flex-col";
+        
+        const isOwner = currentUser && (band.user_id === currentUser.id);
+
+        card.innerHTML = `
+          <!-- Photo Container -->
+          <div class="relative aspect-square w-full rounded-2xl overflow-hidden bg-slate-900 mb-3 border border-slate-800">
+            <img id="img-${band.id}" src="${bandImages[activeImgIndex]}" alt="${band.name}" class="w-full h-full object-cover group-hover:scale-105 transition duration-500">
+            
+            ${bandImages.length > 1 ? `
+              <button onclick="prevPhoto(event, ${band.id})" class="absolute left-2 top-1/2 -translate-y-1/2 bg-black/60 hover:bg-black text-white p-2 rounded-full backdrop-blur transition opacity-0 group-hover:opacity-100">&larr;</button>
+              <button onclick="nextPhoto(event, ${band.id})" class="absolute right-2 top-1/2 -translate-y-1/2 bg-black/60 hover:bg-black text-white p-2 rounded-full backdrop-blur transition opacity-0 group-hover:opacity-100">&rarr;</button>
+              
+              <div class="absolute bottom-3 left-1/2 -translate-x-1/2 flex gap-1.5">
+                ${bandImages.map((_, i) => `<div class="w-1.5 h-1.5 rounded-full ${i === activeImgIndex ? 'bg-white' : 'bg-white/40'}"></div>`).join('')}
+              </div>
+            ` : ''}
+
+            <span class="absolute top-3 left-3 bg-black/70 backdrop-blur text-white text-[10px] font-bold px-2.5 py-1 rounded-full uppercase tracking-wider">${band.genre}</span>
+
+            <!-- Owner Action Button -->
+            <button onclick="openManagePhotosModal(${band.id})" class="absolute top-3 right-3 bg-rose-500/90 hover:bg-rose-600 text-white text-[11px] font-bold px-3 py-1 rounded-full backdrop-blur transition opacity-90 hover:opacity-100 shadow">
+              + Add Photos
+            </button>
+          </div>
+
+          <!-- Listing Details -->
+          <div>
+            <div class="flex justify-between items-start">
+              <h3 class="font-bold text-white text-base">${band.name}</h3>
+              <span class="text-xs font-semibold text-amber-400">★ 5.0</span>
+            </div>
+            <p class="text-xs text-slate-400 font-medium">${band.location}</p>
+            <p class="text-xs text-slate-500 mt-1 line-clamp-2">${band.bio}</p>
+            <div class="mt-2 text-sm">
+              <span class="font-bold text-white">$${band.base_rate}</span>
+              <span class="text-slate-400 text-xs font-normal"> / night rate</span>
+            </div>
+          </div>
+        `;
+        grid.appendChild(card);
+      });
+    }
+
+    function prevPhoto(e, bandId) {
+      e.stopPropagation();
+      const band = bands.find(b => b.id === bandId);
+      currentPhotoIndices[bandId] = (currentPhotoIndices[bandId] - 1 + band.images.length) % band.images.length;
+      filterBands();
+    }
+
+    function nextPhoto(e, bandId) {
+      e.stopPropagation();
+      const band = bands.find(b => b.id === bandId);
+      currentPhotoIndices[bandId] = (currentPhotoIndices[bandId] + 1) % band.images.length;
+      filterBands();
+    }
+
+    function setGenreFilter(genre) {
+      currentGenre = genre;
+      filterBands();
+    }
+
+    function filterBands() {
+      const search = document.getElementById('searchInput').value.toLowerCase();
+      const filtered = bands.filter(b => {
+        const matchesSearch = b.name.toLowerCase().includes(search) || b.location.toLowerCase().includes(search);
+        const matchesGenre = currentGenre === 'All' || b.genre === currentGenre;
+        return matchesSearch && matchesGenre;
+      });
+      renderBands(filtered);
+    }
+
+    function openModal(id) { document.getElementById(id).classList.add('active'); }
+    function closeModal(id) { document.getElementById(id).classList.remove('active'); }
+
+    function openManagePhotosModal(bandId) {
+      document.getElementById('manageBandId').value = bandId;
+      openModal('managePhotosModal');
+    }
+
+    async function uploadPhotosToCloudinary(files) {
+      const uploadedUrls = [];
+      for (let file of files) {
+        const formData = new FormData();
+        formData.append("file", file);
+        formData.append("upload_preset", CLOUDINARY_UPLOAD_PRESET);
+
+        const res = await fetch(`https://api.cloudinary.com/v1_1/${CLOUDINARY_CLOUD_NAME}/image/upload`, {
+          method: "POST",
+          body: formData
+        });
+        const data = await res.json();
+        if(data.secure_url) uploadedUrls.push(data.secure_url);
+      }
+      return uploadedUrls;
+    }
+
+    // Submit Action 1: Create Band
+    async function handleAddBandSubmit(e) {
+      e.preventDefault();
+      const submitBtn = document.getElementById('submitBtn');
+      submitBtn.innerText = "Uploading & Publishing...";
+      submitBtn.disabled = true;
+
+      try {
+        const fileInput = document.getElementById('newBandPhotos');
+        const urlInput = document.getElementById('newBandImageUrl').value.trim();
+        let photoUrls = [];
+
+        if (CLOUDINARY_CLOUD_NAME !== "YOUR_CLOUDINARY_CLOUD_NAME" && fileInput.files.length > 0) {
+          photoUrls = await uploadPhotosToCloudinary(fileInput.files);
+        }
+
+        if (urlInput) photoUrls.push(urlInput);
+
+        if (photoUrls.length === 0) {
+          photoUrls = ["https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?w=600&auto=format&fit=crop&q=80"];
+        }
+
+        const newBandData = {
+          name: document.getElementById('newBandName').value,
+          genre: document.getElementById('newBandGenre').value,
+          location: document.getElementById('newBandLocation').value,
+          base_rate: parseFloat(document.getElementById('newBandRate').value),
+          bio: document.getElementById('newBandBio').value,
+          images: photoUrls,
+          user_id: currentUser ? currentUser.id : null
+        };
+
+        if (_supabase) {
+          const { error } = await _supabase.from('bands').insert([newBandData]);
+          if(error) alert("Error saving profile: " + error.message);
+          else await loadBandsFromDatabase();
+        } else {
+          newBandData.id = Date.now();
+          bands.unshift(newBandData);
+          filterBands();
+        }
+
+        closeModal('addBandModal');
+        e.target.reset();
+        document.getElementById('createPreviewContainer').innerHTML = '';
+      } catch (err) {
+        alert("Upload failed. Make sure your Cloudinary settings are active.");
+      } finally {
+        submitBtn.innerText = "Publish Band Profile";
+        submitBtn.disabled = false;
+      }
+    }
+
+    // Submit Action 2: Manage / Append Photos to Existing Profile
+    async function handleManagePhotosSubmit(e) {
+      e.preventDefault();
+      const manageBtn = document.getElementById('managePhotosBtn');
+      manageBtn.innerText = "Uploading New Photos...";
+      manageBtn.disabled = true;
+
+      const bandId = parseInt(document.getElementById('manageBandId').value);
+      const band = bands.find(b => b.id == bandId);
+
+      try {
+        const fileInput = document.getElementById('extraBandPhotos');
+        const urlInput = document.getElementById('extraImageUrl').value.trim();
+        let newUrls = [];
+
+        if (CLOUDINARY_CLOUD_NAME !== "YOUR_CLOUDINARY_CLOUD_NAME" && fileInput.files.length > 0) {
+          newUrls = await uploadPhotosToCloudinary(fileInput.files);
+        }
+
+        if (urlInput) newUrls.push(urlInput);
+
+        if (newUrls.length === 0) {
+          alert("Please select a file or enter an image URL to add.");
+          return;
+        }
+
+        const updatedImages = [...(band.images || []), ...newUrls];
+
+        if (_supabase) {
+          const { error } = await _supabase.from('bands').update({ images: updatedImages }).eq('id', bandId);
+          if(error) alert("Error updating photos: " + error.message);
+          else await loadBandsFromDatabase();
+        } else {
+          band.images = updatedImages;
+          filterBands();
+        }
+
+        closeModal('managePhotosModal');
+        e.target.reset();
+        document.getElementById('managePreviewContainer').innerHTML = '';
+      } catch (err) {
+        alert("Failed to upload extra photos.");
+      } finally {
+        manageBtn.innerText = "Save & Append Photos";
+        manageBtn.disabled = false;
+      }
+    }
+
+    // Initialize App
+    initAuth();
+    loadBandsFromDatabase();
+  </script>
+</body>
+</html>
